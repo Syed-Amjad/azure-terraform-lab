@@ -1,0 +1,13 @@
+cat <<EOF > .gitignore
+# Terraform files
+.terraform/
+*.tfstate
+*.tfstate.backup
+.terraform.lock.hcl
+terraform.tfvars
+*.terraform.tfstate.lock.info
+
+# Local files
+blobfile.txt
+downloaded.txt
+EOF
