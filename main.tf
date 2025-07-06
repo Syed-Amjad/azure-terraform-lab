@@ -5,6 +5,10 @@ terraform {
       source  = "hashicorp/azurerm"
       version = "~> 3.0"
     }
+    random = {
+      source  = "hashicorp/random"
+      version = "~> 3.0"
+    }
   }
 }
 
@@ -32,24 +36,14 @@ resource "azurerm_storage_account" "lab4_storage" {
   account_replication_type = "LRS"
   account_kind             = "StorageV2"
 
-  # Updated security settings
-  https_traffic_only_enabled = true
-  min_tls_version           = "TLS1_2"
+  # Security settings
+  https_traffic_only_enabled       = true
+  min_tls_version                 = "TLS1_2"
   allow_nested_items_to_be_public = false
 
-  # Assign your current user as Storage Blob Data Owner
   identity {
     type = "SystemAssigned"
   }
-}
-
-# Assign RBAC role to current user
-data "azurerm_client_config" "current" {}
-
-resource "azurerm_role_assignment" "storage_admin" {
-  scope                = azurerm_storage_account.lab4_storage.id
-  role_definition_name = "Storage Blob Data Owner"
-  principal_id         = data.azurerm_client_config.current.object_id
 }
 
 # 3. Blob Storage Container
@@ -61,8 +55,6 @@ resource "azurerm_storage_container" "lab4_container" {
 
 # Upload a sample file using storage account key
 resource "null_resource" "upload_blob" {
-  depends_on = [azurerm_role_assignment.storage_admin]
-
   provisioner "local-exec" {
     command = <<EOT
       echo "Hello from Terraform-managed Blob Storage" > blobfile.txt
@@ -95,8 +87,6 @@ resource "azurerm_storage_table" "lab4_table" {
 
 # Insert sample data using storage account key
 resource "null_resource" "insert_table_data" {
-  depends_on = [azurerm_role_assignment.storage_admin]
-
   provisioner "local-exec" {
     command = <<EOT
       az storage entity insert \
@@ -119,8 +109,6 @@ resource "azurerm_storage_queue" "lab4_queue" {
 
 # Send a test message using storage account key
 resource "null_resource" "queue_message" {
-  depends_on = [azurerm_role_assignment.storage_admin]
-
   provisioner "local-exec" {
     command = <<EOT
       az storage message put \
