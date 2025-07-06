@@ -5,7 +5,7 @@ pipeline {
     ARM_CLIENT_ID       = credentials('azure-client-id')
     ARM_CLIENT_SECRET   = credentials('azure-client-secret')
     ARM_TENANT_ID       = credentials('azure-tenant-id')
-    TF_VAR_rg_suffix    = sh(script: 'echo $RANDOM', returnStdout: true).trim()
+    UNIQUE_SUFFIX       = sh(script: 'date +%s | cut -c 6-10', returnStdout:true).trim()
   }
   stages {
     stage('Checkout Code') {
@@ -16,34 +16,25 @@ pipeline {
     
     stage('Terraform Init') {
       steps {
-        sh 'terraform init -input=false'
+        sh 'terraform init -input=false -upgrade'
       }
     }
     
-    stage('Terraform Plan') {
-      steps {
-        sh 'terraform plan -out=tfplan -input=false'
-      }
-    }
-    
-    stage('Manual Approval') {
-      when { 
-        not { branch 'main' } 
-      }
-      steps {
-        timeout(time: 30, unit: 'MINUTES') {
-          input message: 'Apply Terraform changes?', ok: 'Yes'
-        }
-      }
-    }
-    
-    stage('Terraform Apply') {
+    stage('Terraform Plan/Apply') {
       steps {
         script {
-          // Cleanup any previous failed state
-          sh 'terraform destroy -auto-approve -target=azurerm_resource_group.lab4_rg || true'
-          // Apply changes
-          sh 'terraform apply -auto-approve -input=false tfplan'
+          // Generate unique names
+          def RG_NAME = "lab4-rg-${env.UNIQUE_SUFFIX}"
+          def STORAGE_NAME = "lab4strg${env.UNIQUE_SUFFIX}"
+          
+          // Auto-approve for master branch
+          sh """
+            terraform plan -out=tfplan -input=false \
+              -var="resource_group_name=${RG_NAME}" \
+              -var="storage_account_name=${STORAGE_NAME}"
+            
+            terraform apply -auto-approve -input=false tfplan
+          """
         }
       }
     }
@@ -51,9 +42,10 @@ pipeline {
   post {
     always {
       cleanWs()
+      archiveArtifacts artifacts: '**/*.tfplan', allowEmptyArchive: true
     }
     failure {
-      sh 'terraform destroy -auto-approve || true'
+      sh 'terraform destroy -auto-approve -var="resource_group_name=lab4-rg-${UNIQUE_SUFFIX}" || true'
     }
   }
 }
