@@ -13,30 +13,33 @@ pipeline {
           $class: 'GitSCM',
           branches: [[name: '*/master']],
           extensions: [
-            // This ensures subdirectories are properly checked out
-            [$class: 'RelativeTargetDirectory', relativeTargetDir: 'azure-storage-lab']
+            // This copies files directly to workspace root
+            [$class: 'CleanBeforeCheckout'],
+            [$class: 'RelativeTargetDirectory', relativeTargetDir: '.']
           ],
-          userRemoteConfigs: [[url: 'https://github.com/your-username/your-repo.git']]
+          userRemoteConfigs: [[
+            url: 'https://github.com/Syed-Amjad/azure-terraform-lab.git',
+            credentialsId: 'your-github-credentials' // Add in Jenkins credentials
+          ]]
         ])
       }
     }
-    
+
     stage('Terraform Init') {
       steps {
-        dir('azure-storage-lab') {
-          sh 'terraform init -input=false'
-        }
+        sh '''
+          ls -la  # Verify files exist
+          terraform init -input=false
+        '''
       }
     }
-    
+
     stage('Terraform Plan') {
       steps {
-        dir('azure-storage-lab') {
-          sh 'terraform plan -out=tfplan -input=false'
-        }
+        sh 'terraform plan -out=tfplan -input=false'
       }
     }
-    
+
     stage('Manual Approval') {
       steps {
         timeout(time: 30, unit: 'MINUTES') {
@@ -44,13 +47,17 @@ pipeline {
         }
       }
     }
-    
+
     stage('Terraform Apply') {
       steps {
-        dir('azure-storage-lab') {
-          sh 'terraform apply -auto-approve -input=false tfplan'
-        }
+        sh 'terraform apply -auto-approve -input=false tfplan'
       }
+    }
+  }
+  post {
+    always {
+      cleanWs()
+      sh 'terraform destroy -auto-approve' // Optional: Cleanup after testing
     }
   }
 }
