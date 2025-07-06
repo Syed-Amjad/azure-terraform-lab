@@ -7,17 +7,26 @@ pipeline {
     ARM_TENANT_ID       = credentials('azure-tenant-id')
   }
   stages {
+    stage('Checkout Code') {
+      steps {
+        checkout scm  // Ensures code is pulled from your SCM (GitHub)
+      }
+    }
     stage('Terraform Init') {
       steps {
-        dir('~/azure-storage-lab') {
-          sh 'terraform init'
+        dir('azure-storage-lab') {  // Removed ~/
+          sh '''
+            terraform init -input=false
+          '''
         }
       }
     }
     stage('Terraform Plan') {
       steps {
-        dir('~/azure-storage-lab') {
-          sh 'terraform plan -out=tfplan'
+        dir('azure-storage-lab') {
+          sh '''
+            terraform plan -out=tfplan -input=false
+          '''
         }
       }
     }
@@ -30,10 +39,17 @@ pipeline {
     }
     stage('Terraform Apply') {
       steps {
-        dir('~/azure-storage-lab') {
-          sh 'terraform apply -auto-approve tfplan'
+        dir('azure-storage-lab') {
+          sh '''
+            terraform apply -auto-approve -input=false tfplan
+          '''
         }
       }
+    }
+  }
+  post {
+    always {
+      cleanWs()  // Clean workspace after build
     }
   }
 }
