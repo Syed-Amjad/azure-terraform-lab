@@ -9,27 +9,34 @@ pipeline {
   stages {
     stage('Checkout Code') {
       steps {
-        checkout scm  // Ensures code is pulled from your SCM (GitHub)
+        checkout([
+          $class: 'GitSCM',
+          branches: [[name: '*/master']],
+          extensions: [
+            // This ensures subdirectories are properly checked out
+            [$class: 'RelativeTargetDirectory', relativeTargetDir: 'azure-storage-lab']
+          ],
+          userRemoteConfigs: [[url: 'https://github.com/your-username/your-repo.git']]
+        ])
       }
     }
+    
     stage('Terraform Init') {
       steps {
-        dir('azure-storage-lab') {  // Removed ~/
-          sh '''
-            terraform init -input=false
-          '''
+        dir('azure-storage-lab') {
+          sh 'terraform init -input=false'
         }
       }
     }
+    
     stage('Terraform Plan') {
       steps {
         dir('azure-storage-lab') {
-          sh '''
-            terraform plan -out=tfplan -input=false
-          '''
+          sh 'terraform plan -out=tfplan -input=false'
         }
       }
     }
+    
     stage('Manual Approval') {
       steps {
         timeout(time: 30, unit: 'MINUTES') {
@@ -37,19 +44,13 @@ pipeline {
         }
       }
     }
+    
     stage('Terraform Apply') {
       steps {
         dir('azure-storage-lab') {
-          sh '''
-            terraform apply -auto-approve -input=false tfplan
-          '''
+          sh 'terraform apply -auto-approve -input=false tfplan'
         }
       }
-    }
-  }
-  post {
-    always {
-      cleanWs()  // Clean workspace after build
     }
   }
 }
